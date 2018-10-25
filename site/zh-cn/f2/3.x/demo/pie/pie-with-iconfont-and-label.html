@@ -1,8 +1,9 @@
 <!--
 index: 10
-title: 带 iconfont 以及文本的饼图
+title: 带 iconfont、文本的饼图
 screenshot: https://gw.alipayobjects.com/zos/rmsportal/iQKkHmBOBoBuKzIfmZcT.png
 needIcon: true
+version: 'f2-all'
 -->
 
 <script>
@@ -114,147 +115,24 @@ needIcon: true
     radius: 0.85
   });
   chart.axis(false);
+
+  chart.pieLabel({
+    label1(data) {
+      return {
+        text: data.name
+      };
+    },
+    label2(data) {
+      return {
+        text: data.percent + '%'
+      };
+    }
+  });
+
   chart.interval()
     .position('a*percent')
     .color('name', [ '#1890FF', '#13C2C2', '#2FC25B', '#FACC14', '#F04864', '#8543E0', '#3436C7', '#223273' ])
     .adjust('stack')
     .shape('pie-with-icon');
   chart.render();
-
-  // 开始绘制文本，如有可能也可以将以下代码进行封装，方便调用
-  var ANCHOR_OFFSET = 5; // 锚点偏移量
-  var OFFSET = 18; // 连接线拐弯点偏移量
-  var APPEND_OFFSET = 40; // 文本同 canvas 四边的偏移值
-  var coord = chart.get('coord'); // 获取坐标系对象
-  var center = coord.center; // 极坐标圆心坐标
-  var r = coord.circleRadius; // 极坐标半径
-  var canvas = chart.get('canvas'); // 获取 canvas 对象
-  var canvasWidth = chart.get('width'); // 获取 canvas 的宽度
-
-  var drawnLabels = []; // 用于存储被绘制的文本图形对象
-  var labelGroup = canvas.addGroup(); // 用于存储文本以及文本连接线
-
-  // 判断两个矩形是否相交
-  function _isOverlap(label1, label2) {
-    var label1BBox = label1.getBBox();
-    var label2BBox = label2.getBBox();
-    return Math.max(label1BBox.minX, label2BBox.minX) <= Math.min(label1BBox.maxX, label2BBox.minX) && Math.max(label1BBox.minY, label2BBox.minY) <= Math.min(label1BBox.maxY, label2BBox.maxY);
-  }
-
-  // 绘制文本连接线
-  function _drawLabelLine(label, labelGroup) {
-    var _anchor = label._anchor,
-      _router = label._router,
-      fill = label.fill,
-      y = label.y,
-      _side = label._side;
-
-    var lastPoint = {
-      x: _side === 'left' ? APPEND_OFFSET : canvasWidth - APPEND_OFFSET,
-      y: y
-    };
-
-    // 绘制锚点
-    labelGroup.addShape('Circle', {
-      attrs: {
-        x: _anchor.x,
-        y: _anchor.y,
-        r: 2,
-        fill: fill
-      }
-    });
-
-    // 绘制文本连接线
-    labelGroup.addShape('Polyline', {
-      attrs: {
-        points: [_anchor, _router, lastPoint],
-        lineWidth: 1,
-        stroke: fill
-      }
-    });
-  }
-
-  // 绘制文本
-  function _drawLabel(label) {
-    var _data = label._data,
-      y = label.y,
-      _side = label._side;
-
-    var text = new F2.G.Shape.Text({
-      attrs: {
-        x: _side === 'left' ? APPEND_OFFSET : canvasWidth - APPEND_OFFSET,
-        y: y,
-        fontSize: 12, // 字体大小
-        fill: '#808080',
-        text: _data.name + '\n' + _data.percent + '%',
-        textBaseline: 'middle',
-        textAlign: _side === 'left' ? 'left' : 'right',
-        lineHeight: 16
-      },
-      origin: _data // 存储原始数据
-    });
-    return text;
-  }
-
-
-  // 开始添加饼图的文本
-  function addPieLabel(chart) {
-    labelGroup && labelGroup.clear();
-
-    var labels = []; // 存储要绘制的文本
-    // 获取文本的信息
-    var geom = chart.get('geoms')[0];
-    var shapes = geom.get('container').get('children');
-    shapes.forEach(function(shape) {
-      var shapeAttrs = shape.attr();
-      var origin = shape.get('origin');
-      // 只展示 top5 的文本
-      var startAngle = shapeAttrs.startAngle,
-        endAngle = shapeAttrs.endAngle;
-
-      var middleAngle = (startAngle + endAngle) / 2;
-      var edgePoint = _getEndPoint(center, middleAngle, r + ANCHOR_OFFSET);
-      var routerPoint = _getEndPoint(center, middleAngle, r + OFFSET);
-      var label = {
-        _anchor: edgePoint,
-        _router: routerPoint,
-        _data: origin._origin,
-        x: routerPoint.x,
-        y: routerPoint.y,
-        r: r + OFFSET,
-        fill: origin.color // 字体颜色
-      };
-      // 判断文本的方向
-      if (edgePoint.x < center.x) {
-        label._side = 'left';
-        labels.push(label);
-      } else {
-        label._side = 'right';
-        labels.push(label);
-      }
-    });
-
-    var last_label = void 0; // 存储上一个 label 对象，用于检测文本是否重叠
-    for (var i = 0; i < labels.length; i++) {
-      var label = labels[i];
-      var labelShape = _drawLabel(label); // 绘制文本图形对象
-
-      if (last_label) {
-        if (_isOverlap(labelShape, last_label)) {
-          // 重叠了就不绘制
-          last_label = labelShape;
-          continue;
-        }
-      }
-      drawnLabels.push(labelShape);
-
-      labelGroup.add(labelShape);
-      _drawLabelLine(label, labelGroup);
-      last_label = labelShape;
-    }
-
-    canvas.draw();
-  }
-
-  addPieLabel(chart);
 </script>

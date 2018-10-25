@@ -1,24 +1,19 @@
 <!--
 index: 8
-title: 带文本的饼图(topN)
+title: 带图例、文本的饼图
 screenshot: https://gw.alipayobjects.com/zos/rmsportal/YZdVacvVzZzdehwJVBeA.gif
+version: 'f2-all'
 -->
-
-<div style="text-align: center;margin: 10px;">
-  <button id="changeData">更新数据</button>
-</div>
-<p style="text-align: center;margin: 5px;">策略：当文本重叠时不展示</p>
-<p style="text-align: center;">文本以及扇形区域可点击</p>
 
 <script>
     const data = [
-      { amount: 16, ratio: 0.1, memo: '学习', const: 'const' },
-      { amount: 16, ratio: 0.5, memo: '睡觉', const: 'const' },
-      { amount: 16, ratio: 0.05, memo: '吃饭', const: 'const' },
-      { amount: 2, ratio: 0.15, memo: '讲礼貌', const: 'const' },
-      { amount: 4, ratio: 0.05, memo: '其他', const: 'const' },
-      { amount: 81, ratio: 0.1, memo: '运动', const: 'const' },
-      { amount: 20, ratio: 0.05, memo: '暂无备注', const: 'const' }
+      { amount: 20, ratio: 0.1, memo: '学习', const: 'const' },
+      { amount: 100, ratio: 0.5, memo: '睡觉', const: 'const' },
+      { amount: 10, ratio: 0.05, memo: '吃饭', const: 'const' },
+      { amount: 30, ratio: 0.15, memo: '讲礼貌', const: 'const' },
+      { amount: 10, ratio: 0.05, memo: '其他', const: 'const' },
+      { amount: 20, ratio: 0.1, memo: '运动', const: 'const' },
+      { amount: 10, ratio: 0.05, memo: '暂无备注', const: 'const' }
     ];
 
     const chart = new F2.Chart({
@@ -30,14 +25,35 @@ screenshot: https://gw.alipayobjects.com/zos/rmsportal/YZdVacvVzZzdehwJVBeA.gif
     chart.coord('polar', {
       transposed: true,
       innerRadius: 0.4,
-      radius: 0.8
+      radius: 0.75
     });
     chart.axis(false);
-    chart.legend(false);
+    chart.legend({
+      position: 'bottom',
+      align: 'center'
+    });
     chart.tooltip(false);
     chart.guide().html({
       position: [ '50%', '50%' ],
       html: '<div style="width: 100px;height: 20px;text-align: center;line-height: 20px;" id="textContent"></div>'
+    });
+    // 配置文本饼图
+    chart.pieLabel({
+      sidePadding: 75,
+      label1(data) {
+        return {
+          text: data.memo,
+          fill: '#808080'
+        };
+      },
+      label2(data) {
+        return {
+          fill: '#000000',
+          text: '$' + data.amount.toFixed(2),
+          fontWeight: 500,
+          fontSize: 10
+        };
+      }
     });
     chart.interval().position('const*ratio')
       .color('memo', [ '#1890FF', '#13C2C2', '#2FC25B', '#FACC14', '#F04864', '#8543E0', '#3436C7', '#223273' ])
@@ -57,232 +73,7 @@ screenshot: https://gw.alipayobjects.com/zos/rmsportal/YZdVacvVzZzdehwJVBeA.gif
         opacity: 0.15
       }
     });
+    chart.get('canvas').draw();
 
-    // 开始绘制文本
-    const ANCHOR_OFFSET = 5; // 锚点偏移量
-    const OFFSET = 18; // 连接线拐弯点偏移量
-    const APPEND_OFFSET = 30; // 文本同 canvas 四边的偏移值
-    const center = coord.center; // 极坐标圆心坐标
-    const r = coord.circleRadius; // 极坐标半径
-    const canvas = chart.get('canvas'); // 获取 canvas 对象
-    const canvasWidth = chart.get('width'); // 获取 canvas 的宽度
-
-    let drawnLabels = []; // 用于存储被绘制的文本图形对象
-    const labelGroup = canvas.addGroup(); // 用于存储文本以及文本连接线
-
-    // 判断两个矩形是否相交
-    function _isOverlap(label1, label2) {
-      const label1BBox = label1.getBBox();
-      const label2BBox = label2.getBBox();
-      return (
-        (Math.max(label1BBox.minX, label2BBox.minX) <= Math.min(label1BBox.maxX, label2BBox.minX))
-        &&
-        (Math.max(label1BBox.minY, label2BBox.minY) <= Math.min(label1BBox.maxY, label2BBox.maxY))
-      );
-    }
-
-    function _getEndPoint(center, angle, r) {
-      return {
-        x: center.x + r * Math.cos(angle),
-        y: center.y + r * Math.sin(angle)
-      };
-    }
-
-    // 绘制文本连接线
-    function _drawLabelLine(label, labelGroup) {
-      const { _anchor, _router, fill, y, _side } = label;
-      const lastPoint = {
-        x: _side === 'left' ? APPEND_OFFSET : canvasWidth - APPEND_OFFSET,
-        y
-      };
-
-      // 绘制锚点
-      labelGroup.addShape('Circle', {
-        attrs: {
-          x: _anchor.x,
-          y: _anchor.y,
-          r: 2,
-          fill
-        }
-      });
-
-      // 绘制文本连接线
-      labelGroup.addShape('Polyline', {
-        attrs: {
-          points: [
-            _anchor,
-            _router,
-            lastPoint
-          ],
-          lineWidth: 1,
-          stroke: fill
-        }
-      });
-    }
-
-    // 绘制文本
-    function _drawLabel(label) {
-      const { _data, y, _side } = label;
-      const group = new F2.G.Group({
-        origin: _data // 存储原始数据
-      });
-      // 新建分类名的 text shape, 加入到 group 中
-      group.addShape('text', {
-        attrs: {
-          x: _side === 'left' ? APPEND_OFFSET : canvasWidth - APPEND_OFFSET,
-          y,
-          fontSize: 12, // 字体大小
-          fill: '#808080',
-          text: _data.memo,
-          textBaseline: 'bottom',
-          textAlign: _side === 'left' ? 'left' : 'right',
-          lineHeight: 16
-        },
-        origin: _data // 存储原始数据
-      });
-      // 新建数字 text shaoe，加入到 group 中
-      group.addShape('text', {
-        attrs: {
-          x: _side === 'left' ? APPEND_OFFSET : canvasWidth - APPEND_OFFSET,
-          y,
-          fontSize: 12, // 字体大小
-          fill: '#000',
-          text: '$' + _data.amount.toFixed(2),
-          textBaseline: 'top',
-          textAlign: _side === 'left' ? 'left' : 'right',
-          lineHeight: 16,
-          fontWeight: 'bold'
-        },
-        origin: _data // 存储原始数据
-      });
-
-
-      return group;
-    }
-
-    // 查找被点击的 label
-    function _findClickedLabel(point) {
-      let clickedShape;
-      for (let i = 0, len = drawnLabels.length; i < len; i++) {
-        const shape = drawnLabels[i];
-        const bbox = shape.getBBox();
-        if (point.x >= bbox.minX && point.x <= bbox.maxX && point.y >= bbox.minY && point.y <= bbox.maxY) {
-          clickedShape = shape;
-          break;
-        }
-      }
-
-      return clickedShape;
-    }
-
-
-    // 开始添加饼图的文本
-    function addPieLabel(chart) {
-      labelGroup && labelGroup.clear();
-
-      // 获取 top5 的数据
-      const top5 = [];
-      const cloneData = data.concat([]);
-      cloneData.sort((obj1, obj2) => {
-        return obj2.ratio - obj1.ratio;
-      });
-      cloneData.map((obj, index) => {
-        if (index <= 4) {
-          top5.push(obj.memo);
-        }
-      });
-
-      const labels = []; // 存储要绘制的文本
-      // 获取文本的信息
-      const geom = chart.get('geoms')[0];
-      const shapes = geom.get('container').get('children');
-      shapes.forEach(shape => {
-        const shapeAttrs = shape.attr();
-        const origin = shape.get('origin');
-        if (top5.indexOf(origin._origin.memo) !== -1) { // 只展示 top5 的文本
-          const { startAngle, endAngle } = shapeAttrs;
-          const middleAngle = (startAngle + endAngle) / 2;
-          const edgePoint = _getEndPoint(center, middleAngle, r + ANCHOR_OFFSET);
-          const routerPoint = _getEndPoint(center, middleAngle, r + OFFSET);
-          const label = {
-            _anchor: edgePoint,
-            _router: routerPoint,
-            _data: origin._origin,
-            x: routerPoint.x,
-            y: routerPoint.y,
-            r: r + OFFSET,
-            fill: origin.color // 字体颜色
-          };
-          // 判断文本的方向
-          if (edgePoint.x < center.x) {
-            label._side = 'left';
-            labels.push(label);
-          } else {
-            label._side = 'right';
-            labels.push(label);
-          }
-        }
-      });
-
-      let last_label; // 存储上一个 label 对象，用于检测文本是否重叠
-      for (let i = 0; i < labels.length; i++) {
-        const label = labels[i];
-        const labelShape = _drawLabel(label); // 绘制文本图形对象
-
-        if (last_label) {
-          if (_isOverlap(labelShape, last_label)) { // 重叠了就不绘制
-            last_label = labelShape;
-            continue;
-          }
-        }
-        drawnLabels.push(labelShape);
-
-        labelGroup.add(labelShape);
-        _drawLabelLine(label, labelGroup);
-        last_label = labelShape;
-      }
-
-      canvas.draw();
-    }
-
-    addPieLabel(chart);
-    // 绑定事件
-    $('#mountNode').on('touchstart', ev => {
-      const point = {};
-      const touches = ev.targetTouches;
-      if (touches && touches.length > 0) {
-        point.x = touches[0].clientX;
-        point.y = touches[0].clientY;
-      } else {
-        point.x = ev.clientX;
-        point.y = ev.clientY;
-      }
-      const canvasPoint = F2.Util.getRelativePosition(point, canvas);
-      const pieData = chart.getSnapRecords(canvasPoint);
-      const clickedLabel = _findClickedLabel(canvasPoint);
-
-      if (pieData.length) {
-        $('#textContent').text(pieData[0]._origin.memo);
-      }
-
-      if (clickedLabel) {
-        $('#textContent').text(clickedLabel.get('origin').memo);
-      }
-    });
-
-// ================= 改变数据 ========================
-function randomData(data) {
-  data.map(obj => {
-    obj.ratio = Math.random();
-    return obj;
-  });
-  return data;
-}
-$('#changeData').on('click', () => {
-  chart.changeData(randomData(data));
-  setTimeout(function() {
-    drawnLabels = [];
-    addPieLabel(chart);
-  }, 350); // 必须在更新动画结束之后再绘制，默认的更新时间是 300
-});
+  //  $('#textContent').text(pieData[0]._origin.memo);
 </script>

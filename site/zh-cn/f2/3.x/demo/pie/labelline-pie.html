@@ -2,285 +2,122 @@
 index: 4
 title: 带文本的饼图
 screenshot: https://gw.alipayobjects.com/zos/rmsportal/oXhzYCceJCHqqmOhDwvr.png
-resource:
-  jsFiles:
-    - ${url.lodash}
+version: 'f2-all'
 -->
 
-<div style="text-align: center;margin: 10px;">
-  <button id="changeData">更新数据</button>
-</div>
-<p style="text-align: center;margin: 5px;">策略：显示全部文本，并进行碰撞检测</p>
+<style>
+  .panel button {
+    border-radius: 4px;
+  }
+  .panel button.active {
+    color: #fff;
+    background-color: #1890ff;
+    border-color: #1890ff;
+  }
+</style>
 
 <script>
-    const data = [
-      { amount: 16, ratio: 0.1, memo: '学习', namekey: 'namekey' },
-      { amount: 16, ratio: 0.5, memo: '睡觉', namekey: 'namekey' },
-      { amount: 16, ratio: 0.05, memo: '吃饭', namekey: 'namekey' },
-      { amount: 2, ratio: 0.15, memo: '讲礼貌', namekey: 'namekey' },
-      { amount: 4, ratio: 0.05, memo: '其他', namekey: 'namekey' },
-      { amount: 81, ratio: 0.1, memo: '运动', namekey: 'namekey' },
-      { amount: 20, ratio: 0.05, memo: '暂无备注', namekey: 'namekey' }
-    ];
-    const chart = new F2.Chart({
-      id: 'mountNode',
-      pixelRatio: window.devicePixelRatio
-    });
+  $(`<div class="panel" style="width: 100%; text-align: center;">
+      <span style="color: #808080; font-size: 12px;">skipOverlapLabels:</span>
+      <button style="width: 50px;" id="skip">true</button>
+      <button class="active" style="width: 50px;" id="notSkip">false</button>
+    </div>`).insertBefore('#mountNode');
 
-    chart.source(data);
-    chart.coord('polar', {
-      transposed: true,
-      innerRadius: 0.4,
-      radius: 0.85
-    });
-    chart.axis(false);
-    chart.legend(false);
-    chart.tooltip(false);
-    chart.interval().position('namekey*ratio')
-      .color('memo')
-      .adjust('stack');
-    chart.render();
+  const data = [
+    { name: '其他消费', y: 6371664, const: 'const' },
+    { name: '生活用品', y: 7216301, const: 'const' },
+    { name: '通讯物流', y: 1500621, const: 'const' },
+    { name: '交通出行', y: 586622, const: 'const' },
+    { name: '饮食', y: 900000, const: 'const' }
+  ];
 
-    // >>>>>>>>>>>>>>>>>>>>>>>>> labeling <<<<<<<<<<<<<<<<<<<<<<<<<<
-
-    const ANCHOR_OFFSET = 5;
-    const OFFSET = 15;
-    const APPEND_OFFSET = 30;
-    const LINEHEIGHT = 32;
-    const coord = chart.get('coord'); // 获取坐标系对象
-    const center = coord.center; // 极坐标圆心坐标
-    const r = coord.circleRadius; // 极坐标半径
-    const canvas = chart.get('canvas');
-    const canvasWidth = chart.get('width');
-    const canvasHeight = chart.get('height');
-    const labelGroup = canvas.addGroup();
-    const labels = [];
-
-    function getEndPoint(center, angle, r) {
-      return {
-        x: center.x + r * Math.cos(angle),
-        y: center.y + r * Math.sin(angle)
-      };
-    }
-
-    // 绘制文本以及连接线
-    function drawLabel(label) {
-      const { _data, _anchor, _router, fill, y } = label;
-      const labelAttrs = {
-        y,
-        fontSize: 12, // 字体大小
-        fill: '#808080',
-        text: _data.memo + '\n' + _data.amount.toFixed(2),
-        textBaseline: 'middle'
-      };
-      const lastPoint = {
-        y
-      };
-
-      if (label._side === 'left') { // 具体文本的位置
-        lastPoint.x = APPEND_OFFSET;
-        labelAttrs.x = APPEND_OFFSET; // 左侧文本左对齐并贴着画布最左侧边缘
-        labelAttrs.textAlign = 'left';
-      } else {
-        lastPoint.x = canvasWidth - APPEND_OFFSET;
-        labelAttrs.x = canvasWidth - APPEND_OFFSET; // 右侧文本右对齐并贴着画布最右侧边缘
-        labelAttrs.textAlign = 'right';
-      }
-
-      // 绘制文本
-      const text = labelGroup.addShape('Text', {
-        attrs: labelAttrs
-      });
-      labels.push(text);
-
-      // 绘制锚点
-      labelGroup.addShape('Circle', {
-        attrs: {
-          x: _anchor.x,
-          y: _anchor.y,
-          r: 2,
-          fill
-        }
-      });
-      // 绘制连接线
-      let points;
-      if (_router.y !== y) { // 文本位置做过调整
-        points = [
-          _anchor,
-          {
-            x: _router.x,
-            y
-          },
-          lastPoint
-        ];
-      } else {
-        points = [
-          _anchor,
-          _router,
-          lastPoint
-        ];
-      }
-
-      labelGroup.addShape('Polyline', {
-        attrs: {
-          points,
-          lineWidth: 1,
-          stroke: fill
-        }
-      });
-    }
-
-    function antiCollision(half, isRight) {
-      const startY = center.y - r - OFFSET - LINEHEIGHT;
-      let overlapping = true;
-      let totalH = canvasHeight;
-      let i;
-
-      let maxY = 0;
-      let minY = Number.MIN_VALUE;
-      const boxes = half.map(function(label) {
-        const labelY = label.y;
-        if (labelY > maxY) {
-          maxY = labelY;
-        }
-        if (labelY < minY) {
-          minY = labelY;
-        }
-        return {
-          size: LINEHEIGHT,
-          targets: [ labelY - startY ]
-        };
-      });
-      if ((maxY - startY) > totalH) {
-        totalH = maxY - startY;
-      }
-
-      while (overlapping) {
-        boxes.forEach(box => {
-          const target = (Math.min.apply(minY, box.targets) + Math.max.apply(minY, box.targets)) / 2;
-          box.pos = Math.min(Math.max(minY, target - box.size / 2), totalH - box.size);
-        });
-
-        // detect overlapping and join boxes
-        overlapping = false;
-        i = boxes.length;
-        while (i--) {
-          if (i > 0) {
-            const previousBox = boxes[i - 1];
-            const box = boxes[i];
-            if (previousBox.pos + previousBox.size > box.pos) { // overlapping
-              previousBox.size += box.size;
-              previousBox.targets = previousBox.targets.concat(box.targets);
-
-              // overflow, shift up
-              if (previousBox.pos + previousBox.size > totalH) {
-                previousBox.pos = totalH - previousBox.size;
-              }
-              boxes.splice(i, 1); // removing box
-              overlapping = true;
-            }
-          }
-        }
-      }
-
-      // step 4: normalize y and adjust x
-      i = 0;
-      boxes.forEach(function(b) {
-        let posInCompositeBox = startY; // middle of the label
-        b.targets.forEach(function() {
-          half[i].y = b.pos + posInCompositeBox + LINEHEIGHT / 2;
-          posInCompositeBox += LINEHEIGHT;
-          i++;
-        });
-      });
-
-      // (x - cx)^2 + (y - cy)^2 = totalR^2
-      half.forEach(function(label) {
-        const rPow2 = label.r * label.r;
-        const dyPow2 = Math.pow(Math.abs(label.y - center.y), 2);
-        if (rPow2 < dyPow2) {
-          label.x = center.x;
-        } else {
-          const dx = Math.sqrt(rPow2 - dyPow2);
-          if (!isRight) { // left
-            label.x = center.x - dx;
-          } else { // right
-            label.x = center.x + dx;
-          }
-        }
-        drawLabel(label);
-      });
-    }
-
-    function addPieLabel(chart) {
-      const halves = [
-        [], // left
-        [] // right
-      ]; // 存储左右 labels
-      labelGroup && labelGroup.clear();
-      const geom = chart.get('geoms')[0];
-      // 获取文本的信息
-      const shapes = geom.get('container').get('children');
-      shapes.forEach(shape => {
-        const shapeAttrs = shape.attr();
-        const origin = shape.get('origin');
-        const { startAngle, endAngle } = shapeAttrs;
-        const middleAngle = (startAngle + endAngle) / 2;
-        const edgePoint = getEndPoint(center, middleAngle, r + ANCHOR_OFFSET);
-        const routerPoint = getEndPoint(center, middleAngle, r + OFFSET);
-        const label = {
-          _anchor: edgePoint,
-          _router: routerPoint,
-          _data: origin._origin,
-          x: routerPoint.x,
-          y: routerPoint.y,
-          r: r + OFFSET,
-          fill: origin.color // 字体颜色
-        };
-        // 判断文本的方向
-        if (edgePoint.x < center.x) {
-          label._side = 'left';
-          halves[0].push(label);
-        } else {
-          label._side = 'right';
-          halves[1].push(label);
-        }
-      });
-
-      const maxCountForOneSide = parseInt(canvasHeight / LINEHEIGHT, 10);
-
-      halves.forEach(function(half, index) {
-        // step 2: reduce labels
-        if (half.length > maxCountForOneSide) {
-          half.sort(function(a, b) {
-            return b._percent - a._percent;
-          });
-          half.splice(maxCountForOneSide, half.length - maxCountForOneSide);
-        }
-
-        // step 3: distribute position (x and y)
-        half.sort(function(a, b) {
-          return a.y - b.y;
-        });
-        antiCollision(half, index);
-        canvas.draw();
-      });
-    }
-
-    addPieLabel(chart);
-
-// ================= 改变数据 ========================
-function randomData(data) {
-  data.map(obj => {
-    obj.ratio = Math.random();
-    return obj;
+  const chart = new F2.Chart({
+    id: 'mountNode',
+    pixelRatio: window.devicePixelRatio
   });
-  return data;
-}
-$('#changeData').on('click', () => {
-  chart.changeData(randomData(data));
-  setTimeout(function() {
-    addPieLabel(chart);
-  }, 350); // 必须在更新动画结束之后再绘制，默认的更新时间是 300
-});
+
+  chart.source(data);
+  chart.coord('polar', {
+    transposed: true,
+    radius: 0.75
+  });
+  chart.legend(false);
+  chart.axis(false);
+
+  // 添加饼图文本
+  chart.pieLabel({
+    sidePadding: 40,
+    label1(data, color) {
+      return {
+        text: data.name,
+        fill: color
+      };
+    },
+    label2(data) {
+      return {
+        text: '￥' + String(Math.floor(data.y * 100) / 100).replace(/\B(?=(\d{3})+(?!\d))/g, ','),
+        fill: '#808080',
+        fontWeight: 'bold'
+      };
+    }
+  });
+
+  chart.interval()
+    .position('const*y')
+    .color('name', [ '#1890FF', '#13C2C2', '#2FC25B', '#FACC14', '#F04864' ])
+    .adjust('stack');
+  chart.render();
+
+  // button 点击操作
+  $('.panel button').click(function(e) {
+    var target = $(e.target);
+    var id = target.attr('id');
+    if (target.hasClass('active')) {
+      return;
+    }
+
+    var currentActive = $('.panel').find('button.active');
+    currentActive.removeClass('active');
+    target.addClass('active');
+
+    if (id === 'skip') {
+      chart.pieLabel({
+        skipOverlapLabels: true,
+        sidePadding: 40,
+        label1(data, color) {
+          return {
+            text: data.name,
+            fill: color
+          };
+        },
+        label2(data) {
+          return {
+            text: '￥' + String(Math.floor(data.y * 100) / 100).replace(/\B(?=(\d{3})+(?!\d))/g, ','),
+            fill: '#808080',
+            fontWeight: 'bold'
+          };
+        }
+      });
+    } else if (id === 'notSkip') {
+      chart.pieLabel({
+        skipOverlapLabels: false,
+        sidePadding: 40,
+        label1(data, color) {
+          return {
+            text: data.name,
+            fill: color
+          };
+        },
+        label2(data) {
+          return {
+            text: '￥' + String(Math.floor(data.y * 100) / 100).replace(/\B(?=(\d{3})+(?!\d))/g, ','),
+            fill: '#808080',
+            fontWeight: 'bold'
+          };
+        }
+      });
+    }
+
+    chart.repaint();
+  });
 </script>
