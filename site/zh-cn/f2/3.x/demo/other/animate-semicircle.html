@@ -108,11 +108,14 @@ resource:
         easing: 'linear',
         animation: function animation(shape, animateCfg) {
           const startAngle = shape.attr('startAngle');
-          const endAngle = shape.attr('endAngle')  + Math.PI * 2;
+          let endAngle = shape.attr('endAngle');
+          if (startAngle > endAngle) { // -Math.PI/2 到 0
+            endAngle += Math.PI * 2;
+          }
           shape.attr('endAngle', startAngle);
           shape.animate().to(Util.mix({
             attrs: {
-              endAngle: endAngle
+              endAngle
             }
           }, animateCfg)).onUpdate(function(frame) {
             $('#text').text(parseInt(frame * 75) + '%');
